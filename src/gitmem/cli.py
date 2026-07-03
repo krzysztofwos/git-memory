@@ -114,6 +114,17 @@ def cmd_sessions(args) -> int:
     return 0
 
 
+def cmd_gc(args) -> int:
+    # Default git-gc under-packs this workload ~3x (near-identical trees need
+    # a large delta window) — measured in the H2 replay; see README.
+    store, _ = open_all(args.home)
+    before = store.size_bytes()
+    store.git("repack", "-adf", "--window=250", "--depth=50", "--threads=0")
+    store.git("prune-packed")
+    print(f"repacked: {before / 1e6:,.1f} MB -> {store.size_bytes() / 1e6:,.1f} MB")
+    return 0
+
+
 def cmd_stats(args) -> int:
     store, index = open_all(args.home)
     c = index.counts()
@@ -164,6 +175,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("stats", help="store and index statistics")
     p.set_defaults(fn=cmd_stats)
+
+    p = sub.add_parser("gc", help="repack the store with tuned delta window")
+    p.set_defaults(fn=cmd_gc)
 
     p = sub.add_parser("setup", help="install Claude Code SessionStart hook and skill")
     p.add_argument("--claude-dir", type=Path, default=Path.home() / ".claude")

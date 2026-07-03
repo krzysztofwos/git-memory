@@ -36,7 +36,9 @@ retrieved byte-for-byte, so quote it rather than reconstructing from memory.
 ## Commands
 
 ```bash
-{bin} search "connection pool exhausted"      # full-text, all sessions
+{bin} search "connection pool exhausted"      # hybrid (keyword + semantic), all sessions
+{bin} search --exact "MAX_RETRY_BACKOFF"      # FTS only: exact identifiers, fastest
+{bin} search --semantic "weird build issue"   # vectors only: vague/paraphrased memories
 {bin} search --kind tool_result "traceback"   # message|tool_call|tool_result|thinking
 {bin} search --session theseus "deploy"       # filter by session-name substring
 {bin} show <blob-sha>                         # verbatim original content
@@ -46,6 +48,9 @@ retrieved byte-for-byte, so quote it rather than reconstructing from memory.
 ```
 
 FTS5 query syntax works: `"exact phrase"`, `term1 AND term2`, `deploy*`.
+Hit markers: `[fts]` keyword match, `[sem]` semantic match, `[both]` — both
+legs agree, highest confidence. If a hybrid search misses, retry --semantic
+with a paraphrase, or --exact with a distinctive identifier.
 
 ## Discipline
 

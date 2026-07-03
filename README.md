@@ -89,8 +89,11 @@ set up, `uv run pytest` to test.
 - `src/gitmem/core.py` — the store (`MemoryStore`, `Session`: append /
   compact / fork / absorb / materialize / grep_history / retrieve)
 - `src/gitmem/transcript.py` — Claude Code JSONL → context events
-- `src/gitmem/index.py` — SQLite FTS5 index keyed by blob SHA (a blob is
-  indexed once, ever)
+- `src/gitmem/index.py` — SQLite FTS5 + vector index keyed by blob SHA (a
+  blob is indexed and embedded once, ever), hybrid search via
+  reciprocal-rank fusion
+- `src/gitmem/embed.py` — local embedding model (bge-small via fastembed,
+  ONNX/CPU, no torch) and the deterministic chunker
 - `src/gitmem/ingest.py` — incremental ingestion, resumable mid-session at
   the item level
 - `src/gitmem/cli.py`, `src/gitmem/setup.py` — the `gitmem` CLI and the
@@ -114,15 +117,26 @@ subagent transcripts included.
 
 ```
 uv run gitmem ingest --jobs 12   # initial ingest (minutes); later runs are incremental
+uv run gitmem embed              # one-time vector backfill (downloads model on first use)
 uv run gitmem setup              # install SessionStart hook + gitmem skill
 
-uv run gitmem search "connection pool exhausted"
+uv run gitmem search "connection pool exhausted"     # hybrid: FTS + vectors, RRF-fused
+uv run gitmem search --exact "MAX_RETRY_BACKOFF"     # FTS only (fast, no model load)
+uv run gitmem search --semantic "that weird build issue with linking"
 uv run gitmem search --kind tool_result --session theseus "traceback"
 uv run gitmem show <blob-sha>            # verbatim original
 uv run gitmem timeline <session> <seq>   # what surrounded a hit
 uv run gitmem sessions
 uv run gitmem stats
 ```
+
+Search is hybrid by default: bm25 over FTS5 plus cosine over locally-computed
+embeddings (bge-small, ONNX on CPU — nothing leaves the machine), fused by
+reciprocal rank. Exact identifiers win via the FTS leg; vague paraphrases win
+via the vector leg. Embeddings inherit the blob-SHA property: computed once
+per unique content, no invalidation path, incremental by set-difference. At
+this scale (~100k vectors) similarity is brute-force exact — no ANN index to
+maintain.
 
 `setup` writes `~/.claude/skills/gitmem/SKILL.md` (teaches Claude when to
 search the archive) and adds a `SessionStart` hook running

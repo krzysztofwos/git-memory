@@ -80,24 +80,60 @@ Tokens-Total: 63
 - **An embedding cache key**: blob SHAs are immutable content addresses —
   embed each blob once, never invalidate.
 
-## Prototype
+## Package
 
 Zero-dependency Python over git plumbing (`hash-object`, `mktree`,
-`commit-tree`, `update-ref`) against a bare repo.
+`commit-tree`, `update-ref`) against a bare repo. uv project; `uv sync` to
+set up, `uv run pytest` to test.
 
-- `gitmem.py` — the library (`MemoryStore`, `Session`: append / compact /
-  fork / absorb / materialize / grep_history / retrieve)
-- `demo.py` — scripted agent session exercising every claim above,
+- `src/gitmem/core.py` — the store (`MemoryStore`, `Session`: append /
+  compact / fork / absorb / materialize / grep_history / retrieve)
+- `src/gitmem/transcript.py` — Claude Code JSONL → context events
+- `src/gitmem/index.py` — SQLite FTS5 index keyed by blob SHA (a blob is
+  indexed once, ever)
+- `src/gitmem/ingest.py` — incremental ingestion, resumable mid-session at
+  the item level
+- `src/gitmem/cli.py`, `src/gitmem/setup.py` — the `gitmem` CLI and the
+  Claude Code integration installer
+- `scripts/demo.py` — scripted agent session exercising every claim above,
   including recovering a compacted-away fact
-- `bench.py` — latency + storage micro-benchmark on synthetic events
-- `replay.py` — replays real Claude Code transcripts
-  (`~/.claude/projects/**/*.jsonl`), one branch per session, in parallel
+- `scripts/bench.py` — latency + storage micro-benchmark on synthetic events
+- `scripts/replay_h2.py` — reproduces the H2 measurement below
 
 ```
 uv run scripts/demo.py
 uv run scripts/bench.py 1000
 uv run scripts/replay_h2.py --jobs 12
 ```
+
+## Using it with Claude Code
+
+The archive lives in `~/.claude/gitmem/` (`store.git` + `index.sqlite`),
+mirroring `~/.claude/projects/**/*.jsonl` — one branch per session,
+subagent transcripts included.
+
+```
+uv run gitmem ingest --jobs 12   # initial ingest (minutes); later runs are incremental
+uv run gitmem setup              # install SessionStart hook + gitmem skill
+
+uv run gitmem search "connection pool exhausted"
+uv run gitmem search --kind tool_result --session theseus "traceback"
+uv run gitmem show <blob-sha>            # verbatim original
+uv run gitmem timeline <session> <seq>   # what surrounded a hit
+uv run gitmem sessions
+uv run gitmem stats
+```
+
+`setup` writes `~/.claude/skills/gitmem/SKILL.md` (teaches Claude when to
+search the archive) and adds a `SessionStart` hook running
+`gitmem ingest --quiet`, so the archive refreshes itself at session start
+(sub-second once initialized, thanks to the mtime watermark + item-level
+resume). Both reference this checkout's `.venv/bin/gitmem` by absolute
+path; re-run `gitmem setup` if the project moves.
+
+Privacy note: the archive contains everything that ever passed through a
+session, including secrets in old tool output. It is local-only; treat it
+with the same care as `~/.claude/projects` itself.
 
 ### Synthetic benchmark (git 2.43, Python 3.12, subprocess plumbing)
 

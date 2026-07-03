@@ -13,6 +13,8 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS blobs(
   sha TEXT PRIMARY KEY,
@@ -29,16 +31,28 @@ CREATE TABLE IF NOT EXISTS items(
 );
 CREATE INDEX IF NOT EXISTS items_sha ON items(sha);
 CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS embeddings(
+  sha TEXT NOT NULL,
+  chunk_no INTEGER NOT NULL,
+  offset INTEGER NOT NULL,
+  model TEXT NOT NULL,
+  vec BLOB NOT NULL,
+  PRIMARY KEY (sha, chunk_no, model)
+);
 """
+
+RRF_K = 60  # standard reciprocal-rank-fusion constant
 
 
 @dataclass(frozen=True)
 class SearchHit:
     sha: str
-    snippet: str
+    snippet: str | None
     score: float
     occurrences: list[tuple[str, int, str]]  # (session, seq, kind)
     n_occurrences: int
+    origin: str = "fts"  # fts | sem | both
+    offset: int = 0  # chunk offset of best semantic match (snippet source)
 
 
 class SearchIndex:
@@ -46,6 +60,7 @@ class SearchIndex:
         self.path = Path(path)
         self.db = sqlite3.connect(self.path)
         self.db.executescript("PRAGMA journal_mode=WAL;" + SCHEMA)
+        self._matrix_cache: dict = {}
 
     def close(self) -> None:
         self.db.close()
@@ -103,6 +118,73 @@ class SearchIndex:
                 "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)", (key, value)
             )
 
+    # ---- vectors ----
+
+    def missing_vectors(self, shas: set[str], model: str) -> set[str]:
+        have = set()
+        shas = list(shas)
+        for i in range(0, len(shas), 500):
+            chunk = shas[i : i + 500]
+            marks = ",".join("?" * len(chunk))
+            have.update(r[0] for r in self.db.execute(
+                f"SELECT DISTINCT sha FROM embeddings WHERE model = ? AND sha IN ({marks})",
+                [model, *chunk],
+            ))
+        return set(shas) - have
+
+    def add_vectors(
+        self, model: str, rows: list[tuple[str, int, int, "np.ndarray"]]
+    ) -> None:
+        """rows: (sha, chunk_no, offset, normalized float32 vector)."""
+        with self.db:
+            self.db.executemany(
+                "INSERT OR REPLACE INTO embeddings(sha, chunk_no, offset, model, vec) "
+                "VALUES (?, ?, ?, ?, ?)",
+                [(sha, no, off, model, vec.astype(np.float16).tobytes())
+                 for sha, no, off, vec in rows],
+            )
+        self._matrix_cache.pop(model, None)
+
+    def vector_count(self, model: str) -> int:
+        return self.db.execute(
+            "SELECT COUNT(*) FROM embeddings WHERE model = ?", (model,)
+        ).fetchone()[0]
+
+    def _matrix(self, model: str):
+        if model not in self._matrix_cache:
+            rows = self.db.execute(
+                "SELECT sha, offset, vec FROM embeddings WHERE model = ?", (model,)
+            ).fetchall()
+            if not rows:
+                self._matrix_cache[model] = ([], None)
+            else:
+                keys = [(sha, off) for sha, off, _ in rows]
+                mat = np.frombuffer(
+                    b"".join(r[2] for r in rows), dtype=np.float16
+                ).reshape(len(rows), -1).astype(np.float32)
+                self._matrix_cache[model] = (keys, mat)
+        return self._matrix_cache[model]
+
+    def semantic_ranked(
+        self, qvec: "np.ndarray", model: str, limit: int
+    ) -> list[tuple[str, int, float]]:
+        """Brute-force cosine top-k, deduped to (sha, best offset, score)."""
+        keys, mat = self._matrix(model)
+        if mat is None:
+            return []
+        sims = mat @ qvec.astype(np.float32)
+        order = np.argsort(sims)[::-1]
+        out, seen = [], set()
+        for i in order:
+            sha, off = keys[i]
+            if sha in seen:
+                continue
+            seen.add(sha)
+            out.append((sha, off, float(sims[i])))
+            if len(out) >= limit:
+                break
+        return out
+
     # ---- read ----
 
     def search(
@@ -119,18 +201,64 @@ class SearchIndex:
             rows = self._match('"' + query.replace('"', '""') + '"', limit * 4)
         hits = []
         for sha, snippet, score in rows:
-            occ_sql = "SELECT session, seq, kind FROM items WHERE sha = ?"
-            args: list = [sha]
-            if kind:
-                occ_sql += " AND kind = ?"
-                args.append(kind)
-            if session_like:
-                occ_sql += " AND session LIKE ?"
-                args.append(f"%{session_like}%")
-            occ = self.db.execute(occ_sql + " ORDER BY session, seq", args).fetchall()
+            occ = self._occurrences(sha, kind, session_like)
             if not occ:
                 continue  # all occurrences excluded by filters
             hits.append(SearchHit(sha, snippet, score, occ[:3], len(occ)))
+            if len(hits) >= limit:
+                break
+        return hits
+
+    def _occurrences(self, sha, kind, session_like):
+        occ_sql = "SELECT session, seq, kind FROM items WHERE sha = ?"
+        args: list = [sha]
+        if kind:
+            occ_sql += " AND kind = ?"
+            args.append(kind)
+        if session_like:
+            occ_sql += " AND session LIKE ?"
+            args.append(f"%{session_like}%")
+        return self.db.execute(occ_sql + " ORDER BY session, seq", args).fetchall()
+
+    def hybrid_search(
+        self,
+        query: str,
+        qvec: "np.ndarray | None",
+        model: str,
+        limit: int = 10,
+        kind: str | None = None,
+        session_like: str | None = None,
+    ) -> list[SearchHit]:
+        """Reciprocal-rank fusion of the FTS and semantic legs.
+
+        Exact identifiers win via bm25; vague paraphrases win via vectors.
+        Either leg may be empty (no vectors yet / no keyword overlap)."""
+        pool = limit * 4
+        try:
+            fts = self._match(query, pool)
+        except sqlite3.OperationalError:
+            fts = self._match('"' + query.replace('"', '""') + '"', pool)
+        sem = self.semantic_ranked(qvec, model, pool) if qvec is not None else []
+
+        fused: dict[str, float] = {}
+        snippets = {sha: snip for sha, snip, _ in fts}
+        offsets = {sha: off for sha, off, _ in sem}
+        for rank, (sha, _, _) in enumerate(fts):
+            fused[sha] = fused.get(sha, 0.0) + 1.0 / (RRF_K + rank)
+        for rank, (sha, _, _) in enumerate(sem):
+            fused[sha] = fused.get(sha, 0.0) + 1.0 / (RRF_K + rank)
+
+        hits = []
+        for sha, score in sorted(fused.items(), key=lambda kv: -kv[1]):
+            occ = self._occurrences(sha, kind, session_like)
+            if not occ:
+                continue
+            origin = ("both" if sha in snippets and sha in offsets
+                      else "fts" if sha in snippets else "sem")
+            hits.append(SearchHit(
+                sha, snippets.get(sha), score, occ[:3], len(occ),
+                origin=origin, offset=offsets.get(sha, 0),
+            ))
             if len(hits) >= limit:
                 break
         return hits

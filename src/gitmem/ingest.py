@@ -18,6 +18,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from gitmem.core import ITEM_RE, MemoryStore
+from gitmem.embed import chunks
 from gitmem.index import SearchIndex
 from gitmem.transcript import DEFAULT_ROOT, discover, extract_events, slug
 
@@ -31,6 +32,7 @@ class IngestStats:
     items_appended: int = 0
     items_indexed: int = 0
     blobs_indexed: int = 0
+    blobs_embedded: int = 0
     seconds: float = 0.0
     sessions: list[str] = field(default_factory=list)
 
@@ -51,7 +53,26 @@ def _worker(args: tuple[str, str, str]) -> tuple[str, int]:
     return ingest_file(MemoryStore(store_path), Path(path), Path(root))
 
 
-def update_index(store: MemoryStore, index: SearchIndex, session: str) -> tuple[int, int]:
+def embed_blobs(index: SearchIndex, embedder, contents: dict[str, str]) -> int:
+    """Chunk + embed blobs and store their vectors. Returns blobs embedded."""
+    todo = index.missing_vectors(set(contents), embedder.name)
+    if not todo:
+        return 0
+    rows, texts = [], []
+    for sha in sorted(todo):
+        for no, (off, piece) in enumerate(chunks(contents[sha])):
+            rows.append((sha, no, off))
+            texts.append(piece)
+    vecs = embedder.embed_docs(texts)
+    index.add_vectors(embedder.name, [
+        (sha, no, off, vec) for (sha, no, off), vec in zip(rows, vecs)
+    ])
+    return len(todo)
+
+
+def update_index(
+    store: MemoryStore, index: SearchIndex, session: str, embedder=None
+) -> tuple[int, int, int]:
     """Index a session's items beyond what the index already has."""
     done = index.max_seq(session)
     rows = []
@@ -61,12 +82,13 @@ def update_index(store: MemoryStore, index: SearchIndex, session: str) -> tuple[
         if m and int(m.group(1)) > done:
             rows.append((int(m.group(1)), m.group(2), m.group(3), meta.split()[2]))
     if not rows:
-        return 0, 0
+        return 0, 0, 0
     rows.sort()
     fresh = index.missing_blobs({sha for _, _, _, sha in rows})
     contents = store.cat_batch(sorted(fresh))
     index.add(session, rows, contents)
-    return len(rows), len(fresh)
+    embedded = embed_blobs(index, embedder, contents) if embedder and contents else 0
+    return len(rows), len(fresh), embedded
 
 
 def ingest_all(
@@ -75,6 +97,7 @@ def ingest_all(
     root: Path = DEFAULT_ROOT,
     jobs: int = 1,
     force: bool = False,
+    embedder=None,
     progress=lambda msg: None,
 ) -> IngestStats:
     t0 = time.time()
@@ -111,9 +134,10 @@ def ingest_all(
             progress(f"[{i}/{len(files)}] {stats.items_appended:,} items appended")
 
     for session in stats.sessions:
-        n_items, n_blobs = update_index(store, index, session)
+        n_items, n_blobs, n_embedded = update_index(store, index, session, embedder)
         stats.items_indexed += n_items
         stats.blobs_indexed += n_blobs
+        stats.blobs_embedded += n_embedded
     index.set_meta(MTIME_KEY, repr(max_mtime))
     stats.seconds = time.time() - t0
     return stats

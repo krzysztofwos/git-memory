@@ -32,9 +32,14 @@ def cmd_ingest(args) -> int:
     progress = (lambda m: None) if args.quiet else (
         lambda m: print(f"\r  {m}", end="", flush=True)
     )
+    embedder = None
+    if not args.no_embed:
+        from gitmem.embed import load_embedder
+
+        embedder = load_embedder()
     stats = ingest_all(
         store, index, root=args.projects, jobs=args.jobs, force=args.force,
-        progress=progress,
+        embedder=embedder, progress=progress,
     )
     if not args.quiet:
         print()
@@ -42,28 +47,90 @@ def cmd_ingest(args) -> int:
         print(
             f"ingested {stats.items_appended:,} new items from "
             f"{stats.files_ingested} sessions ({stats.blobs_indexed:,} new blobs "
-            f"indexed) in {stats.seconds:.1f}s"
+            f"indexed, {stats.blobs_embedded:,} embedded) in {stats.seconds:.1f}s"
         )
     return 0
 
 
+def cmd_embed(args) -> int:
+    """Backfill vectors for already-indexed blobs missing them."""
+    from gitmem.embed import MODEL_NAME, load_embedder
+
+    from gitmem.ingest import embed_blobs
+
+    store, index = open_all(args.home)
+    embedder = load_embedder()
+    if embedder is None:
+        print("embedding model unavailable (is fastembed installed?)", file=sys.stderr)
+        return 1
+    todo = sorted(index.missing_vectors(
+        {r[0] for r in index.db.execute("SELECT sha FROM blobs")}, MODEL_NAME,
+    ))
+    print(f"{len(todo):,} blobs to embed")
+    done = 0
+    for i in range(0, len(todo), args.batch):
+        batch = todo[i : i + args.batch]
+        contents = store.cat_batch(batch)
+        done += embed_blobs(index, embedder, contents)
+        print(f"\r  {done:,}/{len(todo):,} blobs "
+              f"({index.vector_count(MODEL_NAME):,} vectors)", end="", flush=True)
+    print()
+    return 0
+
+
 def cmd_search(args) -> int:
-    _, index = open_all(args.home)
-    hits = index.search(
-        " ".join(args.query), limit=args.limit, kind=args.kind,
-        session_like=args.session,
-    )
+    from gitmem.embed import MODEL_NAME
+
+    store, index = open_all(args.home)
+    query = " ".join(args.query)
+    qvec = None
+    if not args.exact and index.vector_count(MODEL_NAME):
+        from gitmem.embed import load_embedder
+
+        embedder = load_embedder()
+        if embedder is not None:
+            qvec = embedder.embed_query(query)
+    if args.semantic and qvec is None:
+        print("semantic search unavailable (no vectors or no model)", file=sys.stderr)
+        return 1
+    if args.semantic:
+        ranked = index.semantic_ranked(qvec, MODEL_NAME, args.limit * 4)
+        hits = _semantic_hits(index, ranked, args)
+    else:
+        hits = index.hybrid_search(
+            query, qvec, MODEL_NAME, limit=args.limit,
+            kind=args.kind, session_like=args.session,
+        )
     if not hits:
         print("no matches")
         return 1
     for h in hits:
         session, seq, kind = h.occurrences[0]
         more = f"  (+{h.n_occurrences - 1} more places)" if h.n_occurrences > 1 else ""
-        print(f"● {kind}  {session} #{seq}  blob {h.sha[:12]}{more}")
-        snippet = " ".join(h.snippet.split())
-        print(f"  {snippet}\n")
+        print(f"● [{h.origin}] {kind}  {session} #{seq}  blob {h.sha[:12]}{more}")
+        snippet = h.snippet or _excerpt(store, h.sha, h.offset)
+        print(f"  {' '.join(snippet.split())}\n")
     print("full content: gitmem show <blob> | context: gitmem timeline <session> <seq>")
     return 0
+
+
+def _semantic_hits(index, ranked, args):
+    hits = []
+    for sha, off, score in ranked:
+        occ = index._occurrences(sha, args.kind, args.session)
+        if not occ:
+            continue
+        from gitmem.index import SearchHit
+
+        hits.append(SearchHit(sha, None, score, occ[:3], len(occ), "sem", off))
+        if len(hits) >= args.limit:
+            break
+    return hits
+
+
+def _excerpt(store, sha, offset, width=200):
+    content = store.retrieve(sha)
+    return content[offset : offset + width]
 
 
 def cmd_show(args) -> int:
@@ -131,8 +198,11 @@ def cmd_stats(args) -> int:
     branches = len(store.git("for-each-ref", "refs/heads").splitlines())
     print(f"store    {store.path}  ({store.size_bytes() / 1e6:,.1f} MB)")
     print(f"sessions {branches}")
+    from gitmem.embed import MODEL_NAME
+
     print(f"indexed  {c['items']:,} items, {c['blobs']:,} unique blobs, "
           f"{c['sessions']} sessions")
+    print(f"vectors  {index.vector_count(MODEL_NAME):,} ({MODEL_NAME})")
     return 0
 
 
@@ -148,14 +218,21 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--projects", type=Path, default=DEFAULT_ROOT)
     p.add_argument("--jobs", type=int, default=4)
     p.add_argument("--force", action="store_true", help="rescan all files, ignore mtime watermark")
+    p.add_argument("--no-embed", action="store_true", help="skip the embedding stage")
     p.add_argument("--quiet", action="store_true")
     p.set_defaults(fn=cmd_ingest)
+
+    p = sub.add_parser("embed", help="backfill vectors for indexed blobs")
+    p.add_argument("--batch", type=int, default=1024)
+    p.set_defaults(fn=cmd_embed)
 
     p = sub.add_parser("search", help="full-text search across all sessions")
     p.add_argument("query", nargs="+")
     p.add_argument("-n", "--limit", type=int, default=10)
     p.add_argument("--kind", help="filter: message|tool_call|tool_result|thinking")
     p.add_argument("--session", help="filter: substring of session name")
+    p.add_argument("--exact", action="store_true", help="FTS only (fast, no model load)")
+    p.add_argument("--semantic", action="store_true", help="vectors only")
     p.set_defaults(fn=cmd_search)
 
     p = sub.add_parser("show", help="print a blob's verbatim content")

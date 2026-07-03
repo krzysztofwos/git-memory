@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Git as the storage and operation log for LLM agent memory"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastembed>=0.8.0",
+    "numpy>=2.5.0",
+]
 
 [project.scripts]
 gitmem = "gitmem.cli:main"

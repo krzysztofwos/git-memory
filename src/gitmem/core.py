@@ -148,6 +148,23 @@ class MemoryStore:
         """Fetch full original content by content address."""
         return self.git("cat-file", "blob", blob)
 
+    def cat_batch(self, shas: list[str]) -> dict[str, str]:
+        """Read many blobs in one git process."""
+        if not shas:
+            return {}
+        out = self.git_bytes(
+            "cat-file", "--batch", data="".join(s + "\n" for s in shas).encode()
+        )
+        result: dict[str, str] = {}
+        pos = 0
+        for sha in shas:
+            nl = out.index(b"\n", pos)
+            header = out[pos:nl].decode()
+            size = int(header.split()[2])
+            result[sha] = out[nl + 1 : nl + 1 + size].decode()
+            pos = nl + 1 + size + 1  # trailing newline
+        return result
+
     def size_bytes(self) -> int:
         return sum(f.stat().st_size for f in self.path.rglob("*") if f.is_file())
 
@@ -186,7 +203,7 @@ class Session:
                 self.next_seq = json.loads(store.git("cat-file", "blob", sha))[
                     "next_seq"
                 ]
-        blobs = self._cat_batch(sorted(set(self.files.values())))
+        blobs = self.store.cat_batch(sorted(set(self.files.values())))
         self._tok = {p: est_tokens(blobs[sha]) for p, sha in self.files.items()}
 
     # ---- write path ----
@@ -321,26 +338,10 @@ class Session:
                     (int(m.group(1)), m.group(2), m.group(3), meta.split()[2])
                 )
         entries.sort()
-        blobs = self._cat_batch(sorted({e[3] for e in entries}))
+        blobs = self.store.cat_batch(sorted({e[3] for e in entries}))
         return [
             Item(seq, kind, role, blobs[sha], sha) for seq, kind, role, sha in entries
         ]
-
-    def _cat_batch(self, shas: list[str]) -> dict[str, str]:
-        if not shas:
-            return {}
-        out = self.store.git_bytes(
-            "cat-file", "--batch", data="".join(s + "\n" for s in shas).encode()
-        )
-        result: dict[str, str] = {}
-        pos = 0
-        for sha in shas:
-            nl = out.index(b"\n", pos)
-            header = out[pos:nl].decode()
-            size = int(header.split()[2])
-            result[sha] = out[nl + 1 : nl + 1 + size].decode()
-            pos = nl + 1 + size + 1  # trailing newline
-        return result
 
     def prompt_text(self, rev: str | None = None) -> str:
         """The string an LLM call would be built from -- a pure function of rev."""

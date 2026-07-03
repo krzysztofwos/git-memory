@@ -7,7 +7,7 @@ Exercises every capability the design claims:
   4. subagents are branches; absorbing one is a merge commit (provenance)
   5. time travel: reconstruct the exact context of any earlier LLM call
 
-Run: python3 demo.py
+Run: uv run scripts/demo.py
 """
 
 from gitmem import MemoryStore

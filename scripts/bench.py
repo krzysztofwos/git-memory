@@ -10,7 +10,7 @@ tool results, 25% of tool results are exact re-reads):
     (no state history) vs naive one-snapshot-per-state (what keeping every
     state costs without structural sharing)
 
-Run: python3 bench.py [N_EVENTS]
+Run: uv run scripts/bench.py [N_EVENTS]
 """
 
 import gzip

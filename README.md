@@ -94,9 +94,9 @@ Zero-dependency Python over git plumbing (`hash-object`, `mktree`,
   (`~/.claude/projects/**/*.jsonl`), one branch per session, in parallel
 
 ```
-python3 demo.py
-python3 bench.py 1000
-python3 replay.py --jobs 12
+uv run scripts/demo.py
+uv run scripts/bench.py 1000
+uv run scripts/replay_h2.py --jobs 12
 ```
 
 ### Synthetic benchmark (git 2.43, Python 3.12, subprocess plumbing)

@@ -18,7 +18,7 @@ Reported baselines:
   - gzip of extracted content (per-session archives, summed)
   - naive snapshot-per-state (computed arithmetically, not written)
 
-Run: python3 replay.py [--jobs N] [--limit K]
+Run: uv run scripts/replay_h2.py [--jobs N] [--limit K]
 """
 
 import argparse

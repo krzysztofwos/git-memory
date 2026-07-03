@@ -13,7 +13,7 @@ import shutil
 import sys
 from pathlib import Path
 
-HOOK_TIMEOUT = 120
+HOOK_TIMEOUT = 10
 
 SKILL_TEMPLATE = """\
 ---
@@ -90,7 +90,9 @@ def install_hook(claude_dir: Path, bin_path: str) -> tuple[Path, bool]:
     if settings_path.exists():
         settings = json.loads(settings_path.read_text())
     entries = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
-    command = f"{bin_path} ingest --quiet"
+    # Backgrounded so session start never blocks on ingest/embedding; the
+    # ingest lock makes overlapping runs no-op.
+    command = f"nohup {bin_path} ingest --quiet >/dev/null 2>&1 &"
     for entry in entries:
         for hook in entry.get("hooks", []):
             if "gitmem" in hook.get("command", "") and " ingest" in hook.get("command", ""):

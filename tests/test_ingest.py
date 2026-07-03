@@ -87,3 +87,20 @@ def test_search_filters_and_fallback(env):
     assert index.search("ask", kind="message")
     hits = index.search("weird(query")  # invalid FTS5 syntax -> literal fallback
     assert hits and "weird(query" in store.retrieve(hits[0].sha)
+
+
+def test_concurrent_ingest_noops_via_lock(tmp_path):
+    import fcntl
+
+    from gitmem import cli
+
+    home = tmp_path / "gm"
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    home.mkdir()
+    holder = open(home / ".ingest.lock", "w")
+    fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    rc = cli.main(["--home", str(home), "ingest", "--quiet",
+                   "--no-embed", "--projects", str(projects)])
+    assert rc == 0
+    assert not (home / "store.git").exists()  # lock stopped it before any work

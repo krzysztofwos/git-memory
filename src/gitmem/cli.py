@@ -28,6 +28,16 @@ def open_all(home: Path) -> tuple[MemoryStore, SearchIndex]:
 
 
 def cmd_ingest(args) -> int:
+    import fcntl
+
+    args.home.mkdir(parents=True, exist_ok=True)
+    lock = open(args.home / ".ingest.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        if not args.quiet:
+            print("another ingest is running; nothing to do")
+        return 0
     store, index = open_all(args.home)
     progress = (lambda m: None) if args.quiet else (
         lambda m: print(f"\r  {m}", end="", flush=True)

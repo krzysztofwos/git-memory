@@ -75,8 +75,12 @@ def pct(p):
     return statistics.quantiles(lat, n=100)[p - 1]
 
 mid = store.git("rev-list", "main").splitlines()[N // 2]
-t0 = time.perf_counter(); items = sess.materialize(); mat_tip = (time.perf_counter() - t0) * 1000
-t0 = time.perf_counter(); old = sess.materialize(mid); mat_mid = (time.perf_counter() - t0) * 1000
+t0 = time.perf_counter()
+items = sess.materialize()
+mat_tip = (time.perf_counter() - t0) * 1000
+t0 = time.perf_counter()
+old = sess.materialize(mid)
+mat_mid = (time.perf_counter() - t0) * 1000
 
 size_pre = store.size_bytes()
 store.gc()

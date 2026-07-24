@@ -40,7 +40,7 @@ buckets of 256 so an append rewrites one small bucket subtree plus the root
 — a flat directory makes total tree bytes quadratic in session length, which
 real 10k-item sessions punished badly (see the replay results below):
 
-```
+```text
 items/0000/000001.message.system.md
 items/0000/000002.summary.assistant.md   # compaction reused seq 2's slot
 items/0000/000010.summary.assistant.md   # absorbed subagent result
@@ -52,7 +52,7 @@ Keeping blobs metadata-free is what makes content addressing work as
 deduplication: an agent re-reading an unchanged file produces the same blob
 SHA, stored once no matter how many context states reference it.
 
-```
+```text
 Op: compact                 # commit trailers = machine-readable op log
 Replaced: 2..9
 Items-Removed: 8
@@ -103,7 +103,7 @@ set up, `uv run pytest` to test.
 - `scripts/bench.py` — latency + storage micro-benchmark on synthetic events
 - `scripts/replay_h2.py` — reproduces the H2 measurement below
 
-```
+```sh
 uv run scripts/demo.py
 uv run scripts/bench.py 1000
 uv run scripts/replay_h2.py --jobs 12
@@ -115,7 +115,7 @@ The archive lives in `~/.claude/gitmem/` (`store.git` + `index.sqlite`),
 mirroring `~/.claude/projects/**/*.jsonl` — one branch per session,
 subagent transcripts included.
 
-```
+```sh
 uv run gitmem ingest --jobs 12   # initial ingest (minutes); later runs are incremental
 uv run gitmem embed              # one-time vector backfill (downloads model on first use)
 uv run gitmem setup              # install SessionStart hook + gitmem skill

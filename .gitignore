@@ -1,5 +1,6 @@
 __pycache__/
 .venv/
+.fastembed_cache/
 .pytest_cache/
 .ruff_cache/
 dist/

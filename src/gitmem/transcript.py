@@ -41,46 +41,49 @@ def extract_events(path: Path) -> list[tuple[str, str, str]]:
         if content:
             events.append((_KIND_RE.sub("_", kind.lower()) or "other", role, content))
 
-    for line in open(path, errors="replace"):
-        try:
-            rec = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        t = rec.get("type")
-        if t not in ("user", "assistant"):
-            continue
-        content = (rec.get("message") or {}).get("content")
-        if isinstance(content, str):
-            add("message", "user" if t == "user" else "assistant", content)
-            continue
-        for b in content or []:
-            if not isinstance(b, dict):
+    with open(path, errors="replace") as fh:
+        for line in fh:
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
                 continue
-            bt = b.get("type")
-            if bt == "text":
-                add(
-                    "message", "user" if t == "user" else "assistant", b.get("text", "")
-                )
-            elif bt == "thinking":
-                add("thinking", "assistant", b.get("thinking", ""))
-            elif bt == "tool_use":
-                add(
-                    "tool_call",
-                    "assistant",
-                    json.dumps(
-                        {"name": b.get("name"), "input": b.get("input")},
-                        sort_keys=True,
-                        ensure_ascii=False,
-                    ),
-                )
-            elif bt == "tool_result":
-                add("tool_result", "tool", flatten(b.get("content")))
-            else:
-                add(
-                    bt or "other",
-                    "user" if t == "user" else "assistant",
-                    json.dumps(b, sort_keys=True, ensure_ascii=False),
-                )
+            t = rec.get("type")
+            if t not in ("user", "assistant"):
+                continue
+            content = (rec.get("message") or {}).get("content")
+            if isinstance(content, str):
+                add("message", "user" if t == "user" else "assistant", content)
+                continue
+            for b in content or []:
+                if not isinstance(b, dict):
+                    continue
+                bt = b.get("type")
+                if bt == "text":
+                    add(
+                        "message",
+                        "user" if t == "user" else "assistant",
+                        b.get("text", ""),
+                    )
+                elif bt == "thinking":
+                    add("thinking", "assistant", b.get("thinking", ""))
+                elif bt == "tool_use":
+                    add(
+                        "tool_call",
+                        "assistant",
+                        json.dumps(
+                            {"name": b.get("name"), "input": b.get("input")},
+                            sort_keys=True,
+                            ensure_ascii=False,
+                        ),
+                    )
+                elif bt == "tool_result":
+                    add("tool_result", "tool", flatten(b.get("content")))
+                else:
+                    add(
+                        bt or "other",
+                        "user" if t == "user" else "assistant",
+                        json.dumps(b, sort_keys=True, ensure_ascii=False),
+                    )
     return events
 
 

@@ -31,41 +31,41 @@ def cmd_ingest(args) -> int:
     import fcntl
 
     args.home.mkdir(parents=True, exist_ok=True)
-    lock = open(args.home / ".ingest.lock", "w")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        if not args.quiet:
-            print("another ingest is running; nothing to do")
-        return 0
-    store, index = open_all(args.home)
-    progress = (
-        (lambda m: None)
-        if args.quiet
-        else (lambda m: print(f"\r  {m}", end="", flush=True))
-    )
-    embedder = None
-    if not args.no_embed:
-        from gitmem.embed import load_embedder
-
-        embedder = load_embedder()
-    stats = ingest_all(
-        store,
-        index,
-        root=args.projects,
-        jobs=args.jobs,
-        force=args.force,
-        embedder=embedder,
-        progress=progress,
-    )
-    if not args.quiet:
-        print()
-    if stats.items_appended or not args.quiet:
-        print(
-            f"ingested {stats.items_appended:,} new items from "
-            f"{stats.files_ingested} sessions ({stats.blobs_indexed:,} new blobs "
-            f"indexed, {stats.blobs_embedded:,} embedded) in {stats.seconds:.1f}s"
+    with open(args.home / ".ingest.lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            if not args.quiet:
+                print("another ingest is running; nothing to do")
+            return 0
+        store, index = open_all(args.home)
+        progress = (
+            (lambda m: None)
+            if args.quiet
+            else (lambda m: print(f"\r  {m}", end="", flush=True))
         )
+        embedder = None
+        if not args.no_embed:
+            from gitmem.embed import load_embedder
+
+            embedder = load_embedder()
+        stats = ingest_all(
+            store,
+            index,
+            root=args.projects,
+            jobs=args.jobs,
+            force=args.force,
+            embedder=embedder,
+            progress=progress,
+        )
+        if not args.quiet:
+            print()
+        if stats.items_appended or not args.quiet:
+            print(
+                f"ingested {stats.items_appended:,} new items from "
+                f"{stats.files_ingested} sessions ({stats.blobs_indexed:,} new blobs "
+                f"indexed, {stats.blobs_embedded:,} embedded) in {stats.seconds:.1f}s"
+            )
     return 0
 
 

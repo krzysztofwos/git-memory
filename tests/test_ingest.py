@@ -67,7 +67,7 @@ def test_ingest_is_incremental_at_item_level(env):
     root, store, _index = env
     f = root / "proj/session-1.jsonl"
     write_transcript(f, 3)
-    session, appended = ingest_file(store, f, root)
+    _session, appended = ingest_file(store, f, root)
     assert appended == 12
     write_transcript(f, 5)  # session continues: same prefix, new tail
     _session, appended = ingest_file(store, f, root)
@@ -121,18 +121,18 @@ def test_concurrent_ingest_noops_via_lock(tmp_path):
     projects = tmp_path / "projects"
     projects.mkdir()
     home.mkdir()
-    holder = open(home / ".ingest.lock", "w")
-    fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    rc = cli.main(
-        [
-            "--home",
-            str(home),
-            "ingest",
-            "--quiet",
-            "--no-embed",
-            "--projects",
-            str(projects),
-        ]
-    )
+    with open(home / ".ingest.lock", "w") as holder:
+        fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        rc = cli.main(
+            [
+                "--home",
+                str(home),
+                "ingest",
+                "--quiet",
+                "--no-embed",
+                "--projects",
+                str(projects),
+            ]
+        )
     assert rc == 0
     assert not (home / "store.git").exists()  # lock stopped it before any work

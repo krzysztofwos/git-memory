@@ -42,10 +42,10 @@ real 10k-item sessions punished badly (see the replay results below):
 
 ```text
 items/0000/000001.message.system.md
-items/0000/000002.summary.assistant.md   # compaction reused seq 2's slot
-items/0000/000010.summary.assistant.md   # absorbed subagent result
+items/0000/000002.summary.assistant.md  # compaction reused seq 2's slot
+items/0000/000010.summary.assistant.md  # absorbed subagent result
 items/0003/000841.tool_result.tool.md
-state.json                               # {"next_seq": N}
+state.json                              # {"next_seq": N}
 ```
 
 Keeping blobs metadata-free is what makes content addressing work as
@@ -53,7 +53,7 @@ deduplication: an agent re-reading an unchanged file produces the same blob
 SHA, stored once no matter how many context states reference it.
 
 ```text
-Op: compact                 # commit trailers = machine-readable op log
+Op: compact  # commit trailers = machine-readable op log
 Replaced: 2..9
 Items-Removed: 8
 Tokens-Total: 63
@@ -116,16 +116,16 @@ mirroring `~/.claude/projects/**/*.jsonl` — one branch per session,
 subagent transcripts included.
 
 ```sh
-uv run gitmem ingest --jobs 12   # initial ingest (minutes). Later runs are incremental
-uv run gitmem embed              # one-time vector backfill (downloads model on first use)
-uv run gitmem setup              # install SessionStart hook + gitmem skill
+uv run gitmem ingest --jobs 12  # initial ingest (minutes). Later runs are incremental
+uv run gitmem embed             # one-time vector backfill (downloads model on first use)
+uv run gitmem setup             # install SessionStart hook + gitmem skill
 
-uv run gitmem search "connection pool exhausted"     # hybrid: FTS + vectors, RRF-fused
-uv run gitmem search --exact "MAX_RETRY_BACKOFF"     # FTS only (fast, no model load)
+uv run gitmem search "connection pool exhausted"  # hybrid: FTS + vectors, RRF-fused
+uv run gitmem search --exact "MAX_RETRY_BACKOFF"  # FTS only (fast, no model load)
 uv run gitmem search --semantic "that weird build issue with linking"
 uv run gitmem search --kind tool_result --session theseus "traceback"
-uv run gitmem show <blob-sha>            # verbatim original
-uv run gitmem timeline <session> <seq>   # what surrounded a hit
+uv run gitmem show <blob-sha>           # verbatim original
+uv run gitmem timeline <session> <seq>  # what surrounded a hit
 uv run gitmem sessions
 uv run gitmem stats
 ```

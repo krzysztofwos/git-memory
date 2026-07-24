@@ -80,7 +80,8 @@ class SearchIndex:
             chunk = shas[i : i + 500]
             marks = ",".join("?" * len(chunk))
             known.update(
-                r[0] for r in self.db.execute(
+                r[0]
+                for r in self.db.execute(
                     f"SELECT sha FROM blobs WHERE sha IN ({marks})", chunk
                 )
             )
@@ -100,7 +101,8 @@ class SearchIndex:
                 )
                 if cur.rowcount:
                     self.db.execute(
-                        "INSERT INTO blob_fts(content, sha) VALUES (?, ?)", (content, sha)
+                        "INSERT INTO blob_fts(content, sha) VALUES (?, ?)",
+                        (content, sha),
                     )
             self.db.executemany(
                 "INSERT OR REPLACE INTO items(session, seq, kind, role, sha) "
@@ -126,10 +128,13 @@ class SearchIndex:
         for i in range(0, len(shas), 500):
             chunk = shas[i : i + 500]
             marks = ",".join("?" * len(chunk))
-            have.update(r[0] for r in self.db.execute(
-                f"SELECT DISTINCT sha FROM embeddings WHERE model = ? AND sha IN ({marks})",
-                [model, *chunk],
-            ))
+            have.update(
+                r[0]
+                for r in self.db.execute(
+                    f"SELECT DISTINCT sha FROM embeddings WHERE model = ? AND sha IN ({marks})",
+                    [model, *chunk],
+                )
+            )
         return set(shas) - have
 
     def add_vectors(
@@ -140,8 +145,10 @@ class SearchIndex:
             self.db.executemany(
                 "INSERT OR REPLACE INTO embeddings(sha, chunk_no, offset, model, vec) "
                 "VALUES (?, ?, ?, ?, ?)",
-                [(sha, no, off, model, vec.astype(np.float16).tobytes())
-                 for sha, no, off, vec in rows],
+                [
+                    (sha, no, off, model, vec.astype(np.float16).tobytes())
+                    for sha, no, off, vec in rows
+                ],
             )
         self._matrix_cache.pop(model, None)
 
@@ -159,9 +166,11 @@ class SearchIndex:
                 self._matrix_cache[model] = ([], None)
             else:
                 keys = [(sha, off) for sha, off, _ in rows]
-                mat = np.frombuffer(
-                    b"".join(r[2] for r in rows), dtype=np.float16
-                ).reshape(len(rows), -1).astype(np.float32)
+                mat = (
+                    np.frombuffer(b"".join(r[2] for r in rows), dtype=np.float16)
+                    .reshape(len(rows), -1)
+                    .astype(np.float32)
+                )
                 self._matrix_cache[model] = (keys, mat)
         return self._matrix_cache[model]
 
@@ -253,12 +262,22 @@ class SearchIndex:
             occ = self._occurrences(sha, kind, session_like)
             if not occ:
                 continue
-            origin = ("both" if sha in snippets and sha in offsets
-                      else "fts" if sha in snippets else "sem")
-            hits.append(SearchHit(
-                sha, snippets.get(sha), score, occ[:3], len(occ),
-                origin=origin, offset=offsets.get(sha, 0),
-            ))
+            origin = (
+                "both"
+                if sha in snippets and sha in offsets
+                else "fts" if sha in snippets else "sem"
+            )
+            hits.append(
+                SearchHit(
+                    sha,
+                    snippets.get(sha),
+                    score,
+                    occ[:3],
+                    len(occ),
+                    origin=origin,
+                    offset=offsets.get(sha, 0),
+                )
+            )
             if len(hits) >= limit:
                 break
         return hits

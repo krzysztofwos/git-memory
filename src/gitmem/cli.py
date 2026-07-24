@@ -39,8 +39,10 @@ def cmd_ingest(args) -> int:
             print("another ingest is running; nothing to do")
         return 0
     store, index = open_all(args.home)
-    progress = (lambda m: None) if args.quiet else (
-        lambda m: print(f"\r  {m}", end="", flush=True)
+    progress = (
+        (lambda m: None)
+        if args.quiet
+        else (lambda m: print(f"\r  {m}", end="", flush=True))
     )
     embedder = None
     if not args.no_embed:
@@ -48,8 +50,13 @@ def cmd_ingest(args) -> int:
 
         embedder = load_embedder()
     stats = ingest_all(
-        store, index, root=args.projects, jobs=args.jobs, force=args.force,
-        embedder=embedder, progress=progress,
+        store,
+        index,
+        root=args.projects,
+        jobs=args.jobs,
+        force=args.force,
+        embedder=embedder,
+        progress=progress,
     )
     if not args.quiet:
         print()
@@ -65,7 +72,6 @@ def cmd_ingest(args) -> int:
 def cmd_embed(args) -> int:
     """Backfill vectors for already-indexed blobs missing them."""
     from gitmem.embed import MODEL_NAME, load_embedder
-
     from gitmem.ingest import embed_blobs
 
     store, index = open_all(args.home)
@@ -73,17 +79,24 @@ def cmd_embed(args) -> int:
     if embedder is None:
         print("embedding model unavailable (is fastembed installed?)", file=sys.stderr)
         return 1
-    todo = sorted(index.missing_vectors(
-        {r[0] for r in index.db.execute("SELECT sha FROM blobs")}, MODEL_NAME,
-    ))
+    todo = sorted(
+        index.missing_vectors(
+            {r[0] for r in index.db.execute("SELECT sha FROM blobs")},
+            MODEL_NAME,
+        )
+    )
     print(f"{len(todo):,} blobs to embed")
     done = 0
     for i in range(0, len(todo), args.batch):
         batch = todo[i : i + args.batch]
         contents = store.cat_batch(batch)
         done += embed_blobs(index, embedder, contents)
-        print(f"\r  {done:,}/{len(todo):,} blobs "
-              f"({index.vector_count(MODEL_NAME):,} vectors)", end="", flush=True)
+        print(
+            f"\r  {done:,}/{len(todo):,} blobs "
+            f"({index.vector_count(MODEL_NAME):,} vectors)",
+            end="",
+            flush=True,
+        )
     print()
     return 0
 
@@ -108,8 +121,12 @@ def cmd_search(args) -> int:
         hits = _semantic_hits(index, ranked, args)
     else:
         hits = index.hybrid_search(
-            query, qvec, MODEL_NAME, limit=args.limit,
-            kind=args.kind, session_like=args.session,
+            query,
+            qvec,
+            MODEL_NAME,
+            limit=args.limit,
+            kind=args.kind,
+            session_like=args.session,
         )
     if not hits:
         print("no matches")
@@ -155,8 +172,10 @@ def cmd_show(args) -> int:
 
 def resolve_session(store: MemoryStore, needle: str) -> str:
     names = [
-        line.strip() for line in
-        store.git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()
+        line.strip()
+        for line in store.git(
+            "for-each-ref", "--format=%(refname:short)", "refs/heads"
+        ).splitlines()
     ]
     exact = [n for n in names if n == needle]
     matches = exact or [n for n in names if needle in n]
@@ -183,9 +202,11 @@ def cmd_timeline(args) -> int:
 def cmd_sessions(args) -> int:
     store, _ = open_all(args.home)
     out = store.git(
-        "for-each-ref", "--sort=-committerdate", f"--count={args.limit}",
-        "--format=%(committerdate:short)  %(refname:short)\n"
-        "            %(subject)", "refs/heads",
+        "for-each-ref",
+        "--sort=-committerdate",
+        f"--count={args.limit}",
+        "--format=%(committerdate:short)  %(refname:short)\n" "            %(subject)",
+        "refs/heads",
     )
     print(out.rstrip() or "empty store — run: gitmem ingest")
     return 0
@@ -210,8 +231,10 @@ def cmd_stats(args) -> int:
     print(f"sessions {branches}")
     from gitmem.embed import MODEL_NAME
 
-    print(f"indexed  {c['items']:,} items, {c['blobs']:,} unique blobs, "
-          f"{c['sessions']} sessions")
+    print(
+        f"indexed  {c['items']:,} items, {c['blobs']:,} unique blobs, "
+        f"{c['sessions']} sessions"
+    )
     print(f"vectors  {index.vector_count(MODEL_NAME):,} ({MODEL_NAME})")
     return 0
 
@@ -220,14 +243,20 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="gitmem", description="Searchable verbatim archive of Claude Code sessions"
     )
-    ap.add_argument("--home", type=Path, default=default_home(),
-                    help="archive location (default: ~/.claude/gitmem)")
+    ap.add_argument(
+        "--home",
+        type=Path,
+        default=default_home(),
+        help="archive location (default: ~/.claude/gitmem)",
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("ingest", help="ingest new/changed transcripts (incremental)")
     p.add_argument("--projects", type=Path, default=DEFAULT_ROOT)
     p.add_argument("--jobs", type=int, default=4)
-    p.add_argument("--force", action="store_true", help="rescan all files, ignore mtime watermark")
+    p.add_argument(
+        "--force", action="store_true", help="rescan all files, ignore mtime watermark"
+    )
     p.add_argument("--no-embed", action="store_true", help="skip the embedding stage")
     p.add_argument("--quiet", action="store_true")
     p.set_defaults(fn=cmd_ingest)
@@ -241,7 +270,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-n", "--limit", type=int, default=10)
     p.add_argument("--kind", help="filter: message|tool_call|tool_result|thinking")
     p.add_argument("--session", help="filter: substring of session name")
-    p.add_argument("--exact", action="store_true", help="FTS only (fast, no model load)")
+    p.add_argument(
+        "--exact", action="store_true", help="FTS only (fast, no model load)"
+    )
     p.add_argument("--semantic", action="store_true", help="vectors only")
     p.set_defaults(fn=cmd_search)
 
@@ -273,6 +304,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.cmd == "setup":
         from gitmem.setup import cmd_setup
+
         return cmd_setup(args)
     return args.fn(args)
 

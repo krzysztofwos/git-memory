@@ -58,18 +58,29 @@ def extract_events(path: Path) -> list[tuple[str, str, str]]:
                 continue
             bt = b.get("type")
             if bt == "text":
-                add("message", "user" if t == "user" else "assistant", b.get("text", ""))
+                add(
+                    "message", "user" if t == "user" else "assistant", b.get("text", "")
+                )
             elif bt == "thinking":
                 add("thinking", "assistant", b.get("thinking", ""))
             elif bt == "tool_use":
-                add("tool_call", "assistant", json.dumps(
-                    {"name": b.get("name"), "input": b.get("input")},
-                    sort_keys=True, ensure_ascii=False))
+                add(
+                    "tool_call",
+                    "assistant",
+                    json.dumps(
+                        {"name": b.get("name"), "input": b.get("input")},
+                        sort_keys=True,
+                        ensure_ascii=False,
+                    ),
+                )
             elif bt == "tool_result":
                 add("tool_result", "tool", flatten(b.get("content")))
             else:
-                add(bt or "other", "user" if t == "user" else "assistant",
-                    json.dumps(b, sort_keys=True, ensure_ascii=False))
+                add(
+                    bt or "other",
+                    "user" if t == "user" else "assistant",
+                    json.dumps(b, sort_keys=True, ensure_ascii=False),
+                )
     return events
 
 

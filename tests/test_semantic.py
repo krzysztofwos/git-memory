@@ -52,8 +52,9 @@ def test_vectors_stored_once_and_ranked(tmp_path, emb):
     assert index.vector_count(emb.name) == 2
     assert index.missing_vectors({"sha-a", "sha-b", "sha-c"}, emb.name) == {"sha-c"}
 
-    ranked = index.semantic_ranked(emb.embed_query("the cat sat on the mat"),
-                                   emb.name, limit=2)
+    ranked = index.semantic_ranked(
+        emb.embed_query("the cat sat on the mat"), emb.name, limit=2
+    )
     # fp16 storage quantizes vectors, so self-similarity is ~1.0, not exactly
     assert ranked[0][0] == "sha-a" and ranked[0][2] == pytest.approx(1.0, abs=1e-2)
 
@@ -64,16 +65,22 @@ def test_hybrid_fuses_both_legs(tmp_path, emb):
         "sha-kw": "grep finds this keyword needle exactly",
         "sha-sem": "completely different words about felines on rugs",
     }
-    index.add("sess", [(1, "message", "user", "sha-kw"), (2, "message", "user", "sha-sem")],
-              docs)
-    index.add_vectors(emb.name, [
-        (sha, 0, 0, emb.embed_docs([text])[0]) for sha, text in docs.items()
-    ])
+    index.add(
+        "sess",
+        [(1, "message", "user", "sha-kw"), (2, "message", "user", "sha-sem")],
+        docs,
+    )
+    index.add_vectors(
+        emb.name, [(sha, 0, 0, emb.embed_docs([text])[0]) for sha, text in docs.items()]
+    )
 
     # keyword-only query: FTS leg finds it; semantic leg ranks its own text top
     hits = index.hybrid_search(
-        "needle", emb.embed_query("completely different words about felines on rugs"),
-        emb.name, limit=2)
+        "needle",
+        emb.embed_query("completely different words about felines on rugs"),
+        emb.name,
+        limit=2,
+    )
     assert {h.sha for h in hits} == {"sha-kw", "sha-sem"}
     origins = {h.sha: h.origin for h in hits}
     assert origins["sha-kw"] in ("fts", "both")
@@ -81,7 +88,9 @@ def test_hybrid_fuses_both_legs(tmp_path, emb):
     assert by_sha["sha-sem"].snippet is None or "felines" in by_sha["sha-sem"].snippet
 
     # a sha found by BOTH legs outranks single-leg hits under RRF
-    both = index.hybrid_search("needle", emb.embed_query(docs["sha-kw"]), emb.name, limit=2)
+    both = index.hybrid_search(
+        "needle", emb.embed_query(docs["sha-kw"]), emb.name, limit=2
+    )
     assert both[0].sha == "sha-kw" and both[0].origin == "both"
 
 

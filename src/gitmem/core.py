@@ -92,9 +92,7 @@ class MemoryStore:
             shutil.rmtree(self.path)
         if not (self.path / "HEAD").exists():
             self.path.mkdir(parents=True, exist_ok=True)
-            subprocess.run(
-                ["git", "init", "--bare", "-q", str(self.path)], check=True
-            )
+            subprocess.run(["git", "init", "--bare", "-q", str(self.path)], check=True)
             self.git("config", "user.name", "gitmem")
             self.git("config", "user.email", "gitmem@localhost")
 

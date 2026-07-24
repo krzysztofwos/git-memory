@@ -55,7 +55,9 @@ class Embedder:
         self._model = TextEmbedding(self.name)
 
     def embed_docs(self, texts: list[str]) -> np.ndarray:
-        vecs = np.array(list(self._model.embed(texts, batch_size=256)), dtype=np.float32)
+        vecs = np.array(
+            list(self._model.embed(texts, batch_size=256)), dtype=np.float32
+        )
         return _normalize(vecs)
 
     def embed_query(self, text: str) -> np.ndarray:

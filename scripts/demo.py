@@ -64,14 +64,17 @@ main.append("tool_result", "tool", FILE_READ)  # re-read: dedup, same blob
 print(main.log_oneline())
 items = main.materialize()
 dupes = [i for i in items if i.blob == items[5].blob]
-print(f"Re-read file stored once: items {[i.seq for i in dupes]} share blob "
-      f"{items[5].blob[:12]}")
+print(
+    f"Re-read file stored once: items {[i.seq for i in dupes]} share blob "
+    f"{items[5].blob[:12]}"
+)
 print(f"Context: {len(items)} items, ~{main.token_total()} tokens")
 
 h("2. Compaction is a commit -- the diff IS the audit trail")
 pre_compact_tip = main.tip
 main.compact(
-    2, 9,
+    2,
+    9,
     "Investigated payment retry hammering. Grep + read of payments/retry.py: "
     "exponential backoff capped by an ops-added constant; worker.py retries "
     "charge() 8 times. Root cause suspected in worker.py retry loop.",
@@ -97,23 +100,36 @@ h("4. Subagent = branch; absorbing it = merge commit with provenance")
 sub = main.fork("sub-worker-audit")
 sub.append("message", "user", "Subtask: audit payments/worker.py retry loop.")
 sub.append("tool_call", "assistant", 'read("payments/worker.py")')
-sub.append("tool_result", "tool", "...worker.py source: retry(charge, attempts=8) "
-           "with no jitter and no idempotency key...")
-main.absorb(sub, "Subagent verdict: worker.py retries charge() 8x with no "
-                 "jitter/idempotency key -- that is the API hammering. Fix: add "
-                 "jitter + idempotency key, drop attempts to 4.")
+sub.append(
+    "tool_result",
+    "tool",
+    "...worker.py source: retry(charge, attempts=8) "
+    "with no jitter and no idempotency key...",
+)
+main.absorb(
+    sub,
+    "Subagent verdict: worker.py retries charge() 8x with no "
+    "jitter/idempotency key -- that is the API hammering. Fix: add "
+    "jitter + idempotency key, drop attempts to 4.",
+)
 print(store.git("log", "--graph", "--oneline", "--all"))
 print(f"Main context items: {[(i.seq, i.kind) for i in main.materialize()]}")
 
 h("5. Time travel: rebuild the exact prompt of any earlier LLM call")
 old = main.materialize(pre_compact_tip)
 now = main.materialize()
-print(f"Context at pre-compaction commit {pre_compact_tip[:12]}: "
-      f"{len(old)} items, needle present: {any(needle in i.content for i in old)}")
-print(f"Context at tip: {len(now)} items, needle present: "
-      f"{any(needle in i.content for i in now)}")
+print(
+    f"Context at pre-compaction commit {pre_compact_tip[:12]}: "
+    f"{len(old)} items, needle present: {any(needle in i.content for i in old)}"
+)
+print(
+    f"Context at tip: {len(now)} items, needle present: "
+    f"{any(needle in i.content for i in now)}"
+)
 
 h("Storage")
 store.gc()
-print(f"Repo size after gc: {store.size_bytes():,} bytes for "
-      f"{len(store.git('rev-list', '--all').splitlines())} context states")
+print(
+    f"Repo size after gc: {store.size_bytes():,} bytes for "
+    f"{len(store.git('rev-list', '--all').splitlines())} context states"
+)

@@ -64,9 +64,9 @@ def embed_blobs(index: SearchIndex, embedder, contents: dict[str, str]) -> int:
             rows.append((sha, no, off))
             texts.append(piece)
     vecs = embedder.embed_docs(texts)
-    index.add_vectors(embedder.name, [
-        (sha, no, off, vec) for (sha, no, off), vec in zip(rows, vecs)
-    ])
+    index.add_vectors(
+        embedder.name, [(sha, no, off, vec) for (sha, no, off), vec in zip(rows, vecs)]
+    )
     return len(todo)
 
 
@@ -103,10 +103,7 @@ def ingest_all(
     t0 = time.time()
     stats = IngestStats()
     watermark = float(index.get_meta(MTIME_KEY) or 0)
-    files = [
-        f for f in discover(root)
-        if force or f.stat().st_mtime > watermark
-    ]
+    files = [f for f in discover(root) if force or f.stat().st_mtime > watermark]
     stats.files_seen = len(files)
     if not files:
         stats.seconds = time.time() - t0

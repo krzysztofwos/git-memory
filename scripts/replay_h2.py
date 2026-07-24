@@ -33,8 +33,16 @@ STORE = "stores/replay.git"
 
 def replay_one(path_str: str) -> dict:
     path = Path(path_str)
-    stats = {"file": path.name, "raw": path.stat().st_size, "items": 0,
-             "content": 0, "gz": 0, "naive": 0, "secs": 0.0, "skipped": False}
+    stats = {
+        "file": path.name,
+        "raw": path.stat().st_size,
+        "items": 0,
+        "content": 0,
+        "gz": 0,
+        "naive": 0,
+        "secs": 0.0,
+        "skipped": False,
+    }
     events = extract_events(path)
     if not events:
         return stats
@@ -79,14 +87,18 @@ def main() -> None:
             for k in totals:
                 totals[k] += st[k]
             if st["items"] >= 2000:
-                print(f"  [{done}/{len(files)}] {st['file']}: {st['items']:,} items "
-                      f"in {st['secs']:.0f}s ({st['secs'] / st['items'] * 1000:.0f} ms/append)")
+                print(
+                    f"  [{done}/{len(files)}] {st['file']}: {st['items']:,} items "
+                    f"in {st['secs']:.0f}s ({st['secs'] / st['items'] * 1000:.0f} ms/append)"
+                )
             elif done % 50 == 0:
                 print(f"  [{done}/{len(files)}] ... {totals['items']:,} items so far")
     wall = time.time() - t0
 
-    print(f"\nreplayed {done - skipped} transcripts ({skipped} skipped), "
-          f"{totals['items']:,} items, wall {wall / 60:.1f} min")
+    print(
+        f"\nreplayed {done - skipped} transcripts ({skipped} skipped), "
+        f"{totals['items']:,} items, wall {wall / 60:.1f} min"
+    )
 
     size_pre = store.size_bytes()
     t0 = time.time()
@@ -95,9 +107,15 @@ def main() -> None:
     print(f"gc took {time.time() - t0:.0f}s")
 
     counts: dict[str, tuple[int, int]] = {}
-    for line in store.git_bytes(
-        "cat-file", "--batch-all-objects", "--batch-check=%(objecttype) %(objectsize)"
-    ).decode().splitlines():
+    for line in (
+        store.git_bytes(
+            "cat-file",
+            "--batch-all-objects",
+            "--batch-check=%(objecttype) %(objectsize)",
+        )
+        .decode()
+        .splitlines()
+    ):
         typ, size = line.split()
         n, s = counts.get(typ, (0, 0))
         counts[typ] = (n + 1, s + int(size))
@@ -109,21 +127,29 @@ def main() -> None:
     print(f"context states stored (commits)         {states:>14,}")
     for typ in ("blob", "tree", "commit"):
         n, s = counts.get(typ, (0, 0))
-        print(f"  unique {typ:6}                        {n:>10,}  ({s / mb:,.1f} MB uncompressed)")
+        print(
+            f"  unique {typ:6}                        {n:>10,}  ({s / mb:,.1f} MB uncompressed)"
+        )
     print()
     print(f"raw JSONL transcripts                   {totals['raw'] / mb:>11,.1f} MB")
-    print(f"extracted content (minimal event log)   {totals['content'] / mb:>11,.1f} MB")
+    print(
+        f"extracted content (minimal event log)   {totals['content'] / mb:>11,.1f} MB"
+    )
     print(f"gzipped content (per-session, summed)   {totals['gz'] / mb:>11,.1f} MB")
     print(f"naive snapshot-per-state                {totals['naive'] / mb:>11,.1f} MB")
     print(f"git store, ALL states, pre-gc           {size_pre / mb:>11,.1f} MB")
     print(f"git store, ALL states, post-gc          {size_post / mb:>11,.1f} MB")
     print(f"\ngit/raw-JSONL      = {size_post / totals['raw']:.3f}x")
-    print(f"git/minimal-log    = {size_post / totals['content']:.3f}x   <- H2: must be <= 1")
+    print(
+        f"git/minimal-log    = {size_post / totals['content']:.3f}x   <- H2: must be <= 1"
+    )
     print(f"git/gzipped        = {size_post / totals['gz']:.3f}x")
     print(f"git/naive-states   = {size_post / totals['naive']:.5f}x")
-    print(f"dedup: {totals['items']:,} items -> {counts.get('blob', (0, 0))[0]:,} unique blobs "
-          f"({totals['content'] / mb:,.1f} MB referenced, "
-          f"{counts.get('blob', (0, 0))[1] / mb:,.1f} MB unique)")
+    print(
+        f"dedup: {totals['items']:,} items -> {counts.get('blob', (0, 0))[0]:,} unique blobs "
+        f"({totals['content'] / mb:,.1f} MB referenced, "
+        f"{counts.get('blob', (0, 0))[1] / mb:,.1f} MB unique)"
+    )
 
 
 if __name__ == "__main__":

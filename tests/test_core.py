@@ -9,7 +9,9 @@ def test_append_materialize_roundtrip(tmp_path):
     m.append("tool_result", "tool", "output " * 50)
     items = m.materialize()
     assert [(i.seq, i.kind, i.role) for i in items] == [
-        (1, "message", "system"), (2, "message", "user"), (3, "tool_result", "tool"),
+        (1, "message", "system"),
+        (2, "message", "user"),
+        (3, "tool_result", "tool"),
     ]
     assert items[1].content == "hello"
 

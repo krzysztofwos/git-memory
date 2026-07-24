@@ -9,33 +9,33 @@ subagent fork/merge, context edits) is recorded in one content-addressed DAG.
 
 > **The agent's context window is a pure function of a commit SHA.**
 
-The tree at HEAD *is* the context. To build the prompt for the next LLM call,
+The tree at HEAD _is_ the context. To build the prompt for the next LLM call,
 materialize the tree at the session's tip. Every mutation is a new commit:
 
-| Agent concept | Git primitive |
-|---|---|
-| Context item (message / tool call / tool result) | blob (raw content only) |
-| Context state at any point in time | tree |
-| Operation (append, compact, edit) | commit; op metadata in message trailers |
-| Session | branch |
-| Subagent spawn | branch fork at parent's tip |
-| Subagent result returned to parent | merge commit (2nd parent = subagent tip) |
-| Checkpoint / milestone | tag |
-| Operation log | `git log` |
-| "What did compaction drop?" | `git diff` |
-| Cross-session / long-term memory | other branches; retrieval = read + append with provenance trailer |
-| Post-hoc annotations (eval scores, embeddings) | `git notes` (no history rewrite) |
+| Agent concept                                    | Git primitive                                                     |
+| ------------------------------------------------ | ----------------------------------------------------------------- |
+| Context item (message / tool call / tool result) | blob (raw content only)                                           |
+| Context state at any point in time               | tree                                                              |
+| Operation (append, compact, edit)                | commit; op metadata in message trailers                           |
+| Session                                          | branch                                                            |
+| Subagent spawn                                   | branch fork at parent's tip                                       |
+| Subagent result returned to parent               | merge commit (2nd parent = subagent tip)                          |
+| Checkpoint / milestone                           | tag                                                               |
+| Operation log                                    | `git log`                                                         |
+| "What did compaction drop?"                      | `git diff`                                                        |
+| Cross-session / long-term memory                 | other branches; retrieval = read + append with provenance trailer |
+| Post-hoc annotations (eval scores, embeddings)   | `git notes` (no history rewrite)                                  |
 
 **Compaction is a commit, never a rewrite.** The compaction commit's tree
 replaces N item blobs with one summary blob. The pre-compaction state remains
-reachable as the parent commit, so compaction becomes *recoverable lossy
-compression*: the live context shrinks, but any fact that was ever in context
+reachable as the parent commit, so compaction becomes _recoverable lossy
+compression_: the live context shrinks, but any fact that was ever in context
 can be found again (`grep_history`) and retrieved verbatim by its blob SHA.
 
 ## Layout
 
 Item metadata lives in the filename; operation metadata lives in commit
-trailers; a blob is *exactly* the raw content. Items are fanned out into
+trailers; a blob is _exactly_ the raw content. Items are fanned out into
 buckets of 256 so an append rewrites one small bucket subtree plus the root
 — a flat directory makes total tree bytes quadratic in session length, which
 real 10k-item sessions punished badly (see the replay results below):
@@ -165,16 +165,16 @@ Either way it is noise against multi-second LLM calls.
 largest session 10,102 items) replayed through `Session.append`, one branch
 per session, 12 workers sharing one object store:
 
-| storage of the same corpus | size | vs minimal event log |
-|---|---|---|
-| raw JSONL transcripts | 311.3 MB | 3.56x |
-| extracted content (minimal event log, no states) | 87.4 MB | 1.00x |
-| gzipped content (per-session archives) | 20.6 MB | 0.24x |
-| naive snapshot-per-state (computed) | 114.2 GB | 1306x |
-| git **flat** layout, default `git gc` | 294.3 MB | 3.37x |
-| git flat, `repack --window=250` | 89.9 MB | 1.03x |
-| git **fanout** layout, default `git gc` | 168.7 MB | 1.93x |
-| git fanout, `repack --window=250` | **90.2 MB** | **1.03x** |
+| storage of the same corpus                       | size        | vs minimal event log |
+| ------------------------------------------------ | ----------- | -------------------- |
+| raw JSONL transcripts                            | 311.3 MB    | 3.56x                |
+| extracted content (minimal event log, no states) | 87.4 MB     | 1.00x                |
+| gzipped content (per-session archives)           | 20.6 MB     | 0.24x                |
+| naive snapshot-per-state (computed)              | 114.2 GB    | 1306x                |
+| git **flat** layout, default `git gc`            | 294.3 MB    | 3.37x                |
+| git flat, `repack --window=250`                  | 89.9 MB     | 1.03x                |
+| git **fanout** layout, default `git gc`          | 168.7 MB    | 1.93x                |
+| git fanout, `repack --window=250`                | **90.2 MB** | **1.03x**            |
 
 **Verdict: H2 as stated (≤ 1.0x) is narrowly falsified — the true number is
 1.03x.** Every one of the 71k context states plus full operation provenance
@@ -206,7 +206,7 @@ What the experiment actually taught:
    branches, zero conflicts (atomic loose-object writes + per-branch CAS
    ref updates).
 
-Gzip remains 4.4x smaller — the honest gap: git is a *queryable, replayable*
+Gzip remains 4.4x smaller — the honest gap: git is a _queryable, replayable_
 store at 1.03x the log, not a minimal archive at 0.24x.
 
 Read path on real data: materializing the largest session's full context
@@ -234,8 +234,8 @@ Stores left in place for inspection: `stores/replay.git` (fanout) and
 
 ## Evaluation plan
 
-Two axes: does Git *hold up* as a store, and does this memory model *help the
-agent*?
+Two axes: does Git _hold up_ as a store, and does this memory model _help the
+agent_?
 
 ### Systems (cheap, falsifiable now)
 
@@ -283,7 +283,7 @@ Event sourcing with content addressing is old; the near neighbors are
 [Irmin](https://irmin.org/) (Git-model branchable store), Dolt (versioned
 SQL), and Fossil (everything-in-one-DAG SCM). Agent-side, LangGraph
 checkpointers and OpenHands' event stream snapshot per-step state, but into
-opaque stores. The delta here: using the *DAG semantics* — diffable
+opaque stores. The delta here: using the _DAG semantics_ — diffable
 compaction, fork/merge provenance, content-addressed dedup and retrieval —
 rather than Git as a file backup.
 

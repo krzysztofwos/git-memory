@@ -25,8 +25,10 @@ from gitmem import MemoryStore
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 400
 rng = random.Random(42)
 
-WORDS = ("payment retry backoff worker charge idempotency jitter queue "
-         "config deploy trace error timeout socket parse token cache").split()
+WORDS = (
+    "payment retry backoff worker charge idempotency jitter queue "
+    "config deploy trace error timeout socket parse token cache"
+).split()
 
 
 def prose(n_chars: int) -> str:
@@ -42,7 +44,9 @@ events: list[tuple[str, str, str]] = [("message", "system", prose(1500))]
 while len(events) < N:
     events.append(("message", "user", prose(rng.randint(100, 400))))
     events.append(("message", "assistant", prose(rng.randint(200, 800))))
-    events.append(("tool_call", "assistant", f'read("src/file{rng.randint(1, 40)}.py")'))
+    events.append(
+        ("tool_call", "assistant", f'read("src/file{rng.randint(1, 40)}.py")')
+    )
     if tool_results and rng.random() < 0.25:
         tr = rng.choice(tool_results)  # re-read of an unchanged file
     else:
@@ -71,8 +75,10 @@ jsonl_raw = "\n".join(jsonl_lines).encode() + b"\n"
 jsonl_bytes = len(jsonl_raw)
 jsonl_gz = len(gzip.compress(jsonl_raw))
 
+
 def pct(p):
     return statistics.quantiles(lat, n=100)[p - 1]
+
 
 mid = store.git("rev-list", "main").splitlines()[N // 2]
 t0 = time.perf_counter()
@@ -86,17 +92,25 @@ size_pre = store.size_bytes()
 store.gc()
 size_post = store.size_bytes()
 
-print(f"events appended            {N}  (final context: {len(items)} items, "
-      f"~{sess.token_total():,} tok)")
-print(f"append latency ms          mean {statistics.mean(lat):.1f}  "
-      f"p50 {statistics.median(lat):.1f}  p95 {pct(95):.1f}  max {max(lat):.1f}")
-print(f"materialize tip / mid ms   {mat_tip:.1f} / {mat_mid:.1f}  "
-      f"({len(items)} / {len(old)} items)")
+print(
+    f"events appended            {N}  (final context: {len(items)} items, "
+    f"~{sess.token_total():,} tok)"
+)
+print(
+    f"append latency ms          mean {statistics.mean(lat):.1f}  "
+    f"p50 {statistics.median(lat):.1f}  p95 {pct(95):.1f}  max {max(lat):.1f}"
+)
+print(
+    f"materialize tip / mid ms   {mat_tip:.1f} / {mat_mid:.1f}  "
+    f"({len(items)} / {len(old)} items)"
+)
 print()
 print(f"JSONL event log (no state history)      {jsonl_bytes:>12,} bytes")
 print(f"JSONL gzipped (no state history)        {jsonl_gz:>12,} bytes")
 print(f"naive snapshot-per-state ({N} states)   {state_bytes:>12,} bytes")
 print(f"git repo, every state, pre-gc           {size_pre:>12,} bytes")
-print(f"git repo, every state, post-gc          {size_post:>12,} bytes  "
-      f"({size_post / jsonl_bytes:.2f}x JSONL, "
-      f"{size_post / state_bytes:.4f}x naive snapshots)")
+print(
+    f"git repo, every state, post-gc          {size_post:>12,} bytes  "
+    f"({size_post / jsonl_bytes:.2f}x JSONL, "
+    f"{size_post / state_bytes:.4f}x naive snapshots)"
+)

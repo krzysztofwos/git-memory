@@ -95,7 +95,9 @@ def install_hook(claude_dir: Path, bin_path: str) -> tuple[Path, bool]:
     command = f"nohup {bin_path} ingest --quiet >/dev/null 2>&1 &"
     for entry in entries:
         for hook in entry.get("hooks", []):
-            if "gitmem" in hook.get("command", "") and " ingest" in hook.get("command", ""):
+            if "gitmem" in hook.get("command", "") and " ingest" in hook.get(
+                "command", ""
+            ):
                 if hook["command"] == command:
                     return settings_path, False
                 hook["command"] = command  # project moved: update path
@@ -119,9 +121,13 @@ def cmd_setup(args) -> int:
     skill = install_skill(args.claude_dir, bin_path)
     settings, changed = install_hook(args.claude_dir, bin_path)
     print(f"skill:    {skill}")
-    print(f"hook:     {settings} ({'updated' if changed else 'already installed'}, "
-          f"SessionStart -> gitmem ingest --quiet)")
+    print(
+        f"hook:     {settings} ({'updated' if changed else 'already installed'}, "
+        f"SessionStart -> gitmem ingest --quiet)"
+    )
     print(f"binary:   {bin_path}")
-    print("note: run the initial `gitmem ingest --jobs 12` manually once; "
-          "the hook only does cheap incremental updates.")
+    print(
+        "note: run the initial `gitmem ingest --jobs 12` manually once; "
+        "the hook only does cheap incremental updates."
+    )
     return 0

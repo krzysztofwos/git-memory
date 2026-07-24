@@ -15,14 +15,33 @@ def transcript_line(t, blocks):
 def write_transcript(path, n_turns, tag=""):
     lines = []
     for i in range(n_turns):
-        lines.append(transcript_line("user", [{"type": "text", "text": f"ask{tag} {i}"}]))
-        lines.append(transcript_line("assistant", [
-            {"type": "text", "text": f"answer{tag} {i}"},
-            {"type": "tool_use", "name": "Bash", "input": {"command": f"run{tag} {i}"}},
-        ]))
-        lines.append(transcript_line("user", [
-            {"type": "tool_result", "content": f"result{tag} {i} unique-marker-{tag}{i}"},
-        ]))
+        lines.append(
+            transcript_line("user", [{"type": "text", "text": f"ask{tag} {i}"}])
+        )
+        lines.append(
+            transcript_line(
+                "assistant",
+                [
+                    {"type": "text", "text": f"answer{tag} {i}"},
+                    {
+                        "type": "tool_use",
+                        "name": "Bash",
+                        "input": {"command": f"run{tag} {i}"},
+                    },
+                ],
+            )
+        )
+        lines.append(
+            transcript_line(
+                "user",
+                [
+                    {
+                        "type": "tool_result",
+                        "content": f"result{tag} {i} unique-marker-{tag}{i}",
+                    },
+                ],
+            )
+        )
         lines.append(json.dumps({"type": "mode", "mode": "noise"}))  # non-context line
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n")
@@ -67,7 +86,7 @@ def test_ingest_all_watermark_and_search(env):
 
     hits = index.search("unique-marker-A1")
     assert len(hits) == 1
-    (session, seq, kind), = hits[0].occurrences
+    ((session, seq, kind),) = hits[0].occurrences
     assert "proj-a" in session and kind == "tool_result"
     assert "unique-marker-A1" in store.retrieve(hits[0].sha)
 
@@ -80,8 +99,12 @@ def test_search_filters_and_fallback(env):
     root, store, index = env
     write_transcript(root / "proj/a.jsonl", 2)
     f = root / "proj/b.jsonl"
-    f.write_text(transcript_line(
-        "user", [{"type": "text", "text": "failed calling weird(query here"}]) + "\n")
+    f.write_text(
+        transcript_line(
+            "user", [{"type": "text", "text": "failed calling weird(query here"}]
+        )
+        + "\n"
+    )
     ingest_all(store, index, root=root)
     assert index.search("ask", kind="tool_result") == []
     assert index.search("ask", kind="message")
@@ -100,7 +123,16 @@ def test_concurrent_ingest_noops_via_lock(tmp_path):
     home.mkdir()
     holder = open(home / ".ingest.lock", "w")
     fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    rc = cli.main(["--home", str(home), "ingest", "--quiet",
-                   "--no-embed", "--projects", str(projects)])
+    rc = cli.main(
+        [
+            "--home",
+            str(home),
+            "ingest",
+            "--quiet",
+            "--no-embed",
+            "--projects",
+            str(projects),
+        ]
+    )
     assert rc == 0
     assert not (home / "store.git").exists()  # lock stopped it before any work

@@ -25,10 +25,25 @@ from gitmem import MemoryStore
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 400
 rng = random.Random(42)
 
-WORDS = (
-    "payment retry backoff worker charge idempotency jitter queue "
-    "config deploy trace error timeout socket parse token cache"
-).split()
+WORDS = [
+    "payment",
+    "retry",
+    "backoff",
+    "worker",
+    "charge",
+    "idempotency",
+    "jitter",
+    "queue",
+    "config",
+    "deploy",
+    "trace",
+    "error",
+    "timeout",
+    "socket",
+    "parse",
+    "token",
+    "cache",
+]
 
 
 def prose(n_chars: int) -> str:

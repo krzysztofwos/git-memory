@@ -99,6 +99,7 @@ class MemoryStore:
     def git(self, *args: str, data: str | None = None) -> str:
         p = subprocess.run(
             ["git", "-C", str(self.path), *args],
+            check=False,
             input=data,
             capture_output=True,
             text=True,
@@ -110,6 +111,7 @@ class MemoryStore:
     def git_bytes(self, *args: str, data: bytes | None = None) -> bytes:
         p = subprocess.run(
             ["git", "-C", str(self.path), *args],
+            check=False,
             input=data,
             capture_output=True,
         )
@@ -117,7 +119,7 @@ class MemoryStore:
             raise GitError(f"git {' '.join(args)}: {p.stderr.decode()}")
         return p.stdout
 
-    def session(self, name: str) -> "Session":
+    def session(self, name: str) -> Session:
         return Session(self, name)
 
     # ---- retrieval over *everything ever stored*, compacted or not ----
@@ -189,7 +191,7 @@ class Session:
             return
         for line in store.git("ls-tree", "-r", "-t", self.tip).splitlines():
             meta, _, path = line.partition("\t")
-            mode, otype, sha = meta.split()
+            _mode, otype, sha = meta.split()
             if otype == "tree" and re.fullmatch(r"items/\d+", path):
                 self._bucket_cache[path.split("/")[1]] = sha
             elif otype == "blob" and (m := ITEM_RE.match(path)):
@@ -295,14 +297,14 @@ class Session:
         )
         return self._commit(msg)
 
-    def fork(self, name: str) -> "Session":
+    def fork(self, name: str) -> Session:
         """Branch a child context (e.g. a subagent) from the current state."""
         if not self.tip:
             raise GitError("cannot fork an empty session")
         self.store.git("branch", name, self.tip)
         return Session(self.store, name)
 
-    def absorb(self, child: "Session", summary: str) -> str:
+    def absorb(self, child: Session, summary: str) -> str:
         """Merge a subagent back: append its summary, with a merge commit
         whose second parent is the child's tip -- full provenance of where
         the child forked and everything it did."""

@@ -138,7 +138,7 @@ class SearchIndex:
         return set(shas) - have
 
     def add_vectors(
-        self, model: str, rows: list[tuple[str, int, int, "np.ndarray"]]
+        self, model: str, rows: list[tuple[str, int, int, np.ndarray]]
     ) -> None:
         """rows: (sha, chunk_no, offset, normalized float32 vector)."""
         with self.db:
@@ -175,7 +175,7 @@ class SearchIndex:
         return self._matrix_cache[model]
 
     def semantic_ranked(
-        self, qvec: "np.ndarray", model: str, limit: int
+        self, qvec: np.ndarray, model: str, limit: int
     ) -> list[tuple[str, int, float]]:
         """Brute-force cosine top-k, deduped to (sha, best offset, score)."""
         keys, mat = self._matrix(model)
@@ -232,7 +232,7 @@ class SearchIndex:
     def hybrid_search(
         self,
         query: str,
-        qvec: "np.ndarray | None",
+        qvec: np.ndarray | None,
         model: str,
         limit: int = 10,
         kind: str | None = None,

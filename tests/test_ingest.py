@@ -64,13 +64,13 @@ def test_extract_skips_non_context_lines(tmp_path):
 
 
 def test_ingest_is_incremental_at_item_level(env):
-    root, store, index = env
+    root, store, _index = env
     f = root / "proj/session-1.jsonl"
     write_transcript(f, 3)
     session, appended = ingest_file(store, f, root)
     assert appended == 12
     write_transcript(f, 5)  # session continues: same prefix, new tail
-    session, appended = ingest_file(store, f, root)
+    _session, appended = ingest_file(store, f, root)
     assert appended == 8
     items = store.session(slug(f, root)).materialize()
     assert len(items) == 20
@@ -86,7 +86,7 @@ def test_ingest_all_watermark_and_search(env):
 
     hits = index.search("unique-marker-A1")
     assert len(hits) == 1
-    ((session, seq, kind),) = hits[0].occurrences
+    ((session, _seq, kind),) = hits[0].occurrences
     assert "proj-a" in session and kind == "tool_result"
     assert "unique-marker-A1" in store.retrieve(hits[0].sha)
 

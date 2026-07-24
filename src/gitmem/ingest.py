@@ -5,8 +5,8 @@ and a session's `next_seq - 1` is exactly the number of items already
 ingested, so a live session is resumed by appending `events[ingested:]`.
 Unchanged files are skipped via an mtime watermark kept in the index.
 
-The git write phase can run across processes (branches don't contend);
-the index update phase then derives rows from the store itself, so workers
+The git write phase can run across processes (branches don't contend).
+The index update phase then derives rows from the store itself, so workers
 never touch SQLite.
 """
 
@@ -38,7 +38,7 @@ class IngestStats:
 
 
 def ingest_file(store: MemoryStore, path: Path, root: Path) -> tuple[str, int]:
-    """Append this transcript's new events; returns (session, appended)."""
+    """Append this transcript's new events. Returns (session, appended)."""
     events = extract_events(path)
     session = store.session(slug(path, root))
     ingested = session.next_seq - 1

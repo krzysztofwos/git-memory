@@ -3,8 +3,8 @@
 Measures, for a synthetic-but-realistic transcript (short messages, multi-KB
 tool results, 25% of tool results are exact re-reads):
 
-  - per-append latency (this prototype shells out to git plumbing; a libgit2
-    binding would cut this ~10x -- the number here is the *ceiling*)
+  - per-append latency (this prototype shells out to git plumbing, and a
+    libgit2 binding would cut this ~10x -- the number here is the *ceiling*)
   - context materialization latency at tip and at a historical commit
   - storage: git repo (every context state kept) vs a JSONL event log
     (no state history) vs naive one-snapshot-per-state (what keeping every

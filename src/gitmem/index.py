@@ -241,7 +241,7 @@ class SearchIndex:
     ) -> list[SearchHit]:
         """Reciprocal-rank fusion of the FTS and semantic legs.
 
-        Exact identifiers win via bm25; vague paraphrases win via vectors.
+        Exact identifiers win via bm25. Vague paraphrases win via vectors.
         Either leg may be empty (no vectors yet / no keyword overlap)."""
         pool = limit * 4
         try:

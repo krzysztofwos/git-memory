@@ -1,7 +1,7 @@
 """Install gitmem into Claude Code: a SessionStart ingest hook + a skill.
 
 The hook keeps the archive fresh (incremental ingest is sub-second once the
-initial ingest has run); the skill teaches Claude when and how to search it.
+initial ingest has run). The skill teaches Claude when and how to search it.
 Both reference this environment's gitmem executable by absolute path, so no
 PATH setup is needed. Idempotent: safe to re-run after moving the project.
 """
@@ -30,7 +30,7 @@ description: >-
 # gitmem: archive of past sessions
 
 Every past Claude Code session (including subagents) is stored verbatim and
-full-text indexed. Search returns provenance (session, position); content is
+full-text indexed. Search returns provenance (session, position). Content is
 retrieved byte-for-byte, so quote it rather than reconstructing from memory.
 
 ## Commands
@@ -56,12 +56,12 @@ with a paraphrase, or --exact with a distinctive identifier.
 
 - Search BEFORE claiming past work is unknown or lost to compaction.
 - A hit is (session, seq, blob). Quote retrieved content verbatim and cite
-  the session; use `timeline` to understand context around a hit before
+  the session. Use `timeline` to understand context around a hit before
   drawing conclusions.
 - The archive contains everything that passed through past sessions,
   including secrets in old tool output. Never paste retrieved secrets into
   responses, commits, or external services.
-- The current session is indexed only up to the last ingest; run
+- The current session is indexed only up to the last ingest. Run
   `{bin} ingest` first if very recent context matters.
 """
 
@@ -84,13 +84,13 @@ def install_skill(claude_dir: Path, bin_path: str) -> Path:
 
 
 def install_hook(claude_dir: Path, bin_path: str) -> tuple[Path, bool]:
-    """Add a SessionStart ingest hook to settings.json; returns (path, changed)."""
+    """Add a SessionStart ingest hook to settings.json. Returns (path, changed)."""
     settings_path = claude_dir / "settings.json"
     settings = {}
     if settings_path.exists():
         settings = json.loads(settings_path.read_text())
     entries = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
-    # Backgrounded so session start never blocks on ingest/embedding; the
+    # Backgrounded so session start never blocks on ingest/embedding. The
     # ingest lock makes overlapping runs no-op.
     command = f"nohup {bin_path} ingest --quiet >/dev/null 2>&1 &"
     for entry in entries:
@@ -127,7 +127,7 @@ def cmd_setup(args) -> int:
     )
     print(f"binary:   {bin_path}")
     print(
-        "note: run the initial `gitmem ingest --jobs 12` manually once; "
-        "the hook only does cheap incremental updates."
+        "note: run the initial `gitmem ingest --jobs 12` manually once. "
+        "The hook only does cheap incremental updates."
     )
     return 0

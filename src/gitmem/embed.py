@@ -16,7 +16,7 @@ import numpy as np
 
 MODEL_NAME = "BAAI/bge-small-en-v1.5"  # 384-dim, 512-token input window
 
-# bge's input window is 512 tokens; ~1600 chars keeps chunks inside it so
+# bge's input window is 512 tokens. ~1600 chars keeps chunks inside it so
 # fastembed's silent truncation never drops content.
 CHUNK_CHARS = 1600
 
@@ -44,7 +44,7 @@ def _normalize(mat: np.ndarray) -> np.ndarray:
 
 
 class Embedder:
-    """fastembed wrapper; import cost is paid lazily so ingest still works
+    """fastembed wrapper. Import cost is paid lazily so ingest still works
     (FTS-only) on machines without the model."""
 
     name = MODEL_NAME

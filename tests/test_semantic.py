@@ -8,7 +8,7 @@ from gitmem.index import SearchIndex
 
 
 class FakeEmbedder:
-    """Deterministic vectors from content hashes; identical text -> identical
+    """Deterministic vectors from content hashes. Identical text -> identical
     vector, so self-similarity is 1.0. Exercises storage/ranking/fusion
     mechanics without downloading a model."""
 
@@ -74,7 +74,8 @@ def test_hybrid_fuses_both_legs(tmp_path, emb):
         emb.name, [(sha, 0, 0, emb.embed_docs([text])[0]) for sha, text in docs.items()]
     )
 
-    # keyword-only query: FTS leg finds it; semantic leg ranks its own text top
+    # keyword-only query: the FTS leg finds it while the semantic leg ranks
+    # its own text top
     hits = index.hybrid_search(
         "needle",
         emb.embed_query("completely different words about felines on rugs"),

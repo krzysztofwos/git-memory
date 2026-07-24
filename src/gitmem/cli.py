@@ -214,7 +214,7 @@ def cmd_sessions(args) -> int:
 
 def cmd_gc(args) -> int:
     # Default git-gc under-packs this workload ~3x (near-identical trees need
-    # a large delta window) — measured in the H2 replay; see README.
+    # a large delta window) — measured in the H2 replay (see README).
     store, _ = open_all(args.home)
     before = store.size_bytes()
     store.git("repack", "-adf", "--window=250", "--depth=50", "--threads=0")

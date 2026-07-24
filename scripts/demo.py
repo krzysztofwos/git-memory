@@ -1,10 +1,10 @@
 """Narrative demo: a simulated agent session stored entirely in Git.
 
 Exercises every capability the design claims:
-  1. every context event is a commit; the prompt is a pure function of a SHA
+  1. every context event is a commit -- the prompt is a pure function of a SHA
   2. compaction is a commit, not a rewrite -- auditable via `git diff`
   3. a fact compacted out of the live context is recoverable from history
-  4. subagents are branches; absorbing one is a merge commit (provenance)
+  4. subagents are branches -- absorbing one is a merge commit (provenance)
   5. time travel: reconstruct the exact context of any earlier LLM call
 
 Run: uv run scripts/demo.py
@@ -45,7 +45,7 @@ def h(title: str) -> None:
 store = MemoryStore("stores/demo.git", fresh=True)
 main = store.session("main")
 
-h("1. An agent session unfolds; every event is a commit")
+h("1. An agent session unfolds. Every event is a commit")
 main.append("message", "system", "You are a coding agent. Investigate and fix bugs.")
 main.append("message", "user", "Payment retries hammer the API. Investigate payments/.")
 main.append("tool_call", "assistant", 'grep("MAX_RETRY", "payments/")')
@@ -96,7 +96,7 @@ for hit in hits:
 recovered = store.retrieve(hits[0].blob)
 print(f"Full original recovered by content address? {needle in recovered}")
 
-h("4. Subagent = branch; absorbing it = merge commit with provenance")
+h("4. Subagent = branch. Absorbing it = merge commit with provenance")
 sub = main.fork("sub-worker-audit")
 sub.append("message", "user", "Subtask: audit payments/worker.py retry loop.")
 sub.append("tool_call", "assistant", 'read("payments/worker.py")')

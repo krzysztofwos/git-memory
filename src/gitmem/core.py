@@ -1,7 +1,7 @@
 """gitmem: Git as the storage and operation log for LLM agent memory.
 
 Core invariant: the agent's context window is a pure function of a commit SHA.
-The tree at HEAD *is* the context; every mutation (append a message, record a
+The tree at HEAD *is* the context. Every mutation (append a message, record a
 tool call/result, compact, absorb a subagent) is a new commit. History is
 never rewritten, so compaction is non-destructive: pre-compaction states stay
 reachable as ancestors, and `git diff` shows exactly what a summary replaced.
@@ -50,7 +50,7 @@ def _item_path(seq: int, kind: str, role: str) -> str:
 
 
 def est_tokens(text: str) -> int:
-    """Crude token estimate (len/4). Pluggable; only used for bookkeeping."""
+    """Crude token estimate (len/4). Pluggable, only used for bookkeeping."""
     return max(1, len(text) // 4)
 
 
@@ -272,7 +272,7 @@ class Session:
         """Replace items in [start_seq, end_seq] with one summary item.
 
         Non-destructive: the removed blobs remain reachable via the parent
-        commit; `git diff HEAD~1 HEAD` shows exactly what the summary elides.
+        commit. `git diff HEAD~1 HEAD` shows exactly what the summary elides.
         """
         before = self.token_total()
         victims = [

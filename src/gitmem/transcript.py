@@ -1,6 +1,6 @@
 """Parse Claude Code JSONL transcripts into gitmem context events.
 
-A transcript line of type user/assistant carries content blocks; each block
+A transcript line of type user/assistant carries content blocks. Each block
 that enters the model's context becomes one (kind, role, content) event.
 Extraction is deterministic, so a session ingested up to item N can be
 resumed by appending events[N:] of a re-parse — the basis of incremental

@@ -4,7 +4,7 @@ H2: a git store holding *every historical context state* costs no more than
 the raw event log that holds none of them. Result on 334 real transcripts:
 narrowly falsified at 1.03x after `repack --window=250` — see README.
 
-Every transcript becomes one branch in stores/replay.git; each context block
+Every transcript becomes one branch in stores/replay.git. Each context block
 becomes one Session.append() -> one commit. Workers run in parallel across
 transcripts. For day-to-day use of the archive, use `gitmem ingest` instead —
 this script exists to reproduce the H2 measurement.

@@ -23,7 +23,7 @@ import time
 from gitmem import MemoryStore
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 400
-rng = random.Random(42)
+rng = random.Random(42)  # nosec B311
 
 WORDS = [
     "payment",

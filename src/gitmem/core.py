@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -92,12 +92,14 @@ class MemoryStore:
             shutil.rmtree(self.path)
         if not (self.path / "HEAD").exists():
             self.path.mkdir(parents=True, exist_ok=True)
-            subprocess.run(["git", "init", "--bare", "-q", str(self.path)], check=True)
+            subprocess.run(  # nosec B603 B607
+                ["git", "init", "--bare", "-q", str(self.path)], check=True
+            )
             self.git("config", "user.name", "gitmem")
             self.git("config", "user.email", "gitmem@localhost")
 
     def git(self, *args: str, data: str | None = None) -> str:
-        p = subprocess.run(
+        p = subprocess.run(  # nosec B603 B607
             ["git", "-C", str(self.path), *args],
             check=False,
             input=data,
@@ -109,7 +111,7 @@ class MemoryStore:
         return p.stdout
 
     def git_bytes(self, *args: str, data: bytes | None = None) -> bytes:
-        p = subprocess.run(
+        p = subprocess.run(  # nosec B603 B607
             ["git", "-C", str(self.path), *args],
             check=False,
             input=data,

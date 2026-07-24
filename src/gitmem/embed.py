@@ -70,5 +70,5 @@ def load_embedder() -> Embedder | None:
     """None when fastembed isn't installed/usable — callers degrade to FTS."""
     try:
         return Embedder()
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None

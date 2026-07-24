@@ -82,7 +82,8 @@ class SearchIndex:
             known.update(
                 r[0]
                 for r in self.db.execute(
-                    f"SELECT sha FROM blobs WHERE sha IN ({marks})", chunk
+                    f"SELECT sha FROM blobs WHERE sha IN ({marks})",  # nosec B608
+                    chunk,
                 )
             )
         return set(shas) - known
@@ -131,7 +132,7 @@ class SearchIndex:
             have.update(
                 r[0]
                 for r in self.db.execute(
-                    f"SELECT DISTINCT sha FROM embeddings WHERE model = ? AND sha IN ({marks})",
+                    f"SELECT DISTINCT sha FROM embeddings WHERE model = ? AND sha IN ({marks})",  # nosec B608
                     [model, *chunk],
                 )
             )
